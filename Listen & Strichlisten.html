@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Listen & Strichlisten</title>
+<style>
+:root{--bg:#eef2f6;--card:#fff;--ink:#1b2a3a;--mute:#6b7a8a;--line:#d5dde6;--acc:#1f5fbf;--accT:#fff;--grid:#dbe6f2;--danger:#c0392b;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11161c;--card:#1a222b;--ink:#e6edf5;--mute:#8b9aab;--line:#2d3844;--acc:#6ea8ff;--accT:#0b1626;--grid:#243040;--danger:#ff8a7a}}
+:root[data-theme="dark"]{--bg:#11161c;--card:#1a222b;--ink:#e6edf5;--mute:#8b9aab;--line:#2d3844;--acc:#6ea8ff;--accT:#0b1626;--grid:#243040;--danger:#ff8a7a}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:4px 0 14px}
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--line);border-radius:12px;padding:3px;gap:3px;margin-bottom:14px}
+.tabs button{border:0;background:none;color:var(--mute);padding:10px;border-radius:9px;font:inherit;font-weight:600;cursor:pointer}
+.tabs button.on{background:var(--card);color:var(--ink)}
+button,input{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.row{display:flex;gap:8px}
+input[type=text]{flex:1;min-width:0;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.btn{border:0;background:var(--acc);color:var(--accT);padding:0 16px;border-radius:10px;font-weight:600;cursor:pointer;min-height:44px}
+.ghost{background:none;border:1px solid var(--line);color:var(--ink)}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 0}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:20px;padding:8px 14px;cursor:pointer}
+.chip.on{background:var(--acc);color:var(--accT);border-color:var(--acc)}
+.sheet{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.head{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.title{font-size:20px;font-weight:700;border:0;background:none;flex:1;min-width:0;padding:4px 0}
+.meta{color:var(--mute);font-size:14px;margin-bottom:10px}
+.item{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.item .t{flex:1;word-break:break-word}
+.item.done .t{text-decoration:line-through;color:var(--mute)}
+.chk{width:28px;height:28px;border-radius:8px;border:2px solid var(--acc);background:none;cursor:pointer;color:var(--accT);font-weight:700;flex:none}
+.done .chk{background:var(--acc)}
+.x{border:0;background:none;color:var(--mute);font-size:20px;cursor:pointer;min-width:36px;min-height:36px}
+.tally{padding:10px 0;border-top:1px solid var(--line)}
+.tally .top{display:flex;align-items:center;gap:8px}
+.tally .n{flex:1;font-weight:600;word-break:break-word}
+.cnt{font-size:22px;font-weight:700;min-width:36px;text-align:right}
+.step{width:44px;height:44px;border-radius:12px;border:1px solid var(--line);background:none;font-size:24px;cursor:pointer}
+.step.plus{background:var(--acc);color:var(--accT);border-color:var(--acc)}
+.paper{margin-top:8px;min-height:40px;padding:6px 8px;border-radius:8px;color:var(--acc);display:flex;flex-wrap:wrap;gap:6px;align-items:center;background-color:var(--bg);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:12px 12px}
+.muted{color:var(--mute)}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px}
+.danger{color:var(--danger);border-color:var(--danger)}
+.empty{text-align:center;color:var(--mute);padding:28px 8px}
+</style>
+</head>
+<body>
+<main>
+<h1>Listen & Strichlisten</h1>
+<div class="tabs" id="tabs"></div>
+<div class="row"><input type="text" id="newsheet" data-enter="addsheet" aria-label="Name" maxlength="60"><button class="btn" data-a="addsheet" id="addbtn"></button></div>
+<div class="chips" id="chips"></div>
+<div id="sheet"></div>
+</main>
+<script>
+const KEY='lsapp1';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9);
+function load(){try{const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}return{tab:'l',l:[],t:[],sel:{l:null,t:null}}}
+let S=load(),armed=null,timer=null;
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+const cur=()=>S[S.tab].find(x=>x.id===S.sel[S.tab])||null;
+
+function tl(c){
+  const grp=(n,full)=>{let s='<svg viewBox="0 0 36 30" width="36" height="30" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">';
+    for(let i=0;i<n;i++){const x=6+i*8;s+=`<line x1="${x}" y1="3" x2="${x}" y2="27"/>`}
+    if(full)s+='<line x1="1" y1="23" x2="35" y2="7"/>';return s+'</svg>'};
+  let h='';for(let i=0;i<Math.floor(c/5);i++)h+=grp(4,true);
+  if(c%5)h+=grp(c%5,false);
+  return h||'<span class="muted">noch keine Striche</span>';
+}
+function arm(id,label){return armed===id?'Sicher?':label}
+
+function render(){
+  const T=S.tab,isL=T==='l';
+  $('tabs').innerHTML=`<button data-a="tab" data-v="l" class="${isL?'on':''}">Listen</button><button data-a="tab" data-v="t" class="${isL?'':'on'}">Strichlisten</button>`;
+  $('newsheet').placeholder=isL?'Neue Liste, z. B. Einkauf':'Neue Strichliste, z. B. Punkte';
+  $('addbtn').textContent=isL?'Liste anlegen':'Strichliste anlegen';
+  $('chips').innerHTML=S[T].map(x=>`<button class="chip ${x.id===S.sel[T]?'on':''}" data-a="pick" data-v="${x.id}">${esc(x.name)}</button>`).join('');
+  const c=cur();
+  if(!c){$('sheet').innerHTML=`<div class="empty">${isL?'Noch keine Liste. Lege oben deine erste an.':'Noch keine Strichliste. Lege oben deine erste an.'}</div>`;return}
+  let h=`<div class="sheet"><div class="head"><input class="title" id="title" value="${esc(c.name)}" aria-label="Name ändern" maxlength="60"><button class="btn ghost danger" data-a="delsheet">${arm('ds','Löschen')}</button></div>`;
+  if(isL){
+    const d=c.items.filter(i=>i.d).length;
+    h+=`<div class="meta">${d} von ${c.items.length} erledigt</div><div class="row"><input type="text" id="newitem" data-enter="additem" placeholder="Neuer Eintrag" aria-label="Neuer Eintrag" maxlength="120"><button class="btn" data-a="additem">Hinzufügen</button></div>`;
+    h+=c.items.map(i=>`<div class="item ${i.d?'done':''}"><button class="chk" data-a="toggle" data-v="${i.id}" aria-label="Erledigt umschalten">${i.d?'✓':''}</button><span class="t">${esc(i.t)}</span><button class="x" data-a="delitem" data-v="${i.id}" aria-label="Eintrag löschen">×</button></div>`).join('');
+    if(!c.items.length)h+='<div class="empty">Die Liste ist leer.</div>';
+    if(d)h+=`<div class="foot"><span></span><button class="btn ghost" data-a="cleardone">Erledigte entfernen</button></div>`;
+  }else{
+    const tot=c.rows.reduce((a,r)=>a+r.c,0);
+    h+=`<div class="meta">Gesamt: ${tot}</div><div class="row"><input type="text" id="newitem" data-enter="additem" placeholder="Neuer Name, z. B. Anna" aria-label="Neuer Name" maxlength="60"><button class="btn" data-a="additem">Hinzufügen</button></div>`;
+    h+=c.rows.map(r=>`<div class="tally"><div class="top"><span class="n">${esc(r.n)}</span><span class="cnt">${r.c}</span><button class="step" data-a="dec" data-v="${r.id}" aria-label="Einen Strich weniger">−</button><button class="step plus" data-a="inc" data-v="${r.id}" aria-label="Einen Strich mehr">+</button><button class="x" data-a="delitem" data-v="${r.id}" aria-label="Eintrag löschen">×</button></div><div class="paper">${tl(r.c)}</div></div>`).join('');
+    if(!c.rows.length)h+='<div class="empty">Noch niemand auf der Liste.</div>';
+    if(c.rows.length)h+=`<div class="foot"><span></span><button class="btn ghost" data-a="reset">${arm('rs','Alle auf 0')}</button></div>`;
+  }
+  $('sheet').innerHTML=h+'</div>';
+}
+function $(id){return document.getElementById(id)}
+
+function act(a,v){
+  const T=S.tab,c=cur();
+  if(a!=='delsheet'&&a!=='reset')armed=null;
+  if(a==='tab'){S.tab=v}
+  else if(a==='pick'){S.sel[T]=v}
+  else if(a==='addsheet'){
+    const el=$('newsheet'),name=el.value.trim()||(T==='l'?'Neue Liste':'Neue Strichliste');
+    const o=T==='l'?{id:uid(),name,items:[]}:{id:uid(),name,rows:[]};
+    S[T].push(o);S.sel[T]=o.id;el.value='';
+  }
+  else if(a==='delsheet'||a==='reset'){
+    const k=a==='delsheet'?'ds':'rs';
+    if(armed!==k){armed=k;clearTimeout(timer);timer=setTimeout(()=>{armed=null;render()},3000);render();return}
+    armed=null;
+    if(a==='delsheet'){S[T]=S[T].filter(x=>x.id!==c.id);S.sel[T]=S[T].length?S[T][0].id:null}
+    else c.rows.forEach(r=>r.c=0);
+  }
+  else if(c){
+    const list=T==='l'?c.items:c.rows;
+    if(a==='additem'){
+      const el=$('newitem'),t=el.value.trim();if(!t){el.focus();return}
+      list.push(T==='l'?{id:uid(),t,d:false}:{id:uid(),n:t,c:0});save();render();$('newitem').focus();return;
+    }
+    const it=list.find(x=>x.id===v);
+    if(a==='toggle'&&it)it.d=!it.d;
+    else if(a==='delitem')c[T==='l'?'items':'rows']=list.filter(x=>x.id!==v);
+    else if(a==='cleardone')c.items=c.items.filter(i=>!i.d);
+    else if(a==='inc'&&it)it.c++;
+    else if(a==='dec'&&it&&it.c>0)it.c--;
+  }
+  save();render();
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b)act(b.dataset.a,b.dataset.v)});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.dataset&&e.target.dataset.enter){e.preventDefault();act(e.target.dataset.enter)}});
+document.addEventListener('change',e=>{
+  if(e.target.id==='title'){const c=cur();if(c){c.name=e.target.value.trim()||c.name;save();render()}}
+});
+if(!S.sel[S.tab]&&S[S.tab].length)S.sel[S.tab]=S[S.tab][0].id;
+render();
+</script>
+</body>
+</html>
